@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -11,6 +12,11 @@ public class PlayerController : MonoBehaviour
     CharacterController controller;
     Animator animator;
     AudioSource audioSource;
+
+    private InputAction m_pauseActionMain;
+    private InputAction m_pauseActionUI;
+
+    public GameObject PauseDisplay;
 
     [Header("Controller")]
     public float moveSpeed = 5;
@@ -27,6 +33,18 @@ public class PlayerController : MonoBehaviour
 
     float xRotation = 0f;
 
+
+    /// //////ROY INPUTS
+    public BoxCollider enemy_damage_trigger;
+
+
+    private void Start()
+    {
+        enemy_damage_trigger = GetComponent<BoxCollider>();
+        enemy_damage_trigger.isTrigger = true;
+        //enemy_damage_trigger.enabled = false;
+    }
+
     void Awake()
     {
         controller = GetComponent<CharacterController>();
@@ -39,6 +57,15 @@ public class PlayerController : MonoBehaviour
 
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
+        //The bottom is from the unity chanel although i moved the code into void Awake instead of private void Awake 
+        m_pauseActionMain = playerInput.Main.Pause;
+        m_pauseActionUI = playerInput.UI.Pause;
+
+        // Ensure the pause display is hidden when the game boots up
+        if (PauseDisplay != null)
+        {
+            PauseDisplay.SetActive(false);
+        }
     }
 
     void Update()
@@ -50,6 +77,8 @@ public class PlayerController : MonoBehaviour
         { Attack(); }
 
         SetAnimations();
+
+        DisplayPause();
     }
 
     void FixedUpdate()
@@ -165,8 +194,12 @@ public class PlayerController : MonoBehaviour
         Invoke(nameof(ResetAttack), attackSpeed);
         Invoke(nameof(AttackRaycast), attackDelay);
 
+
+        
+
         audioSource.pitch = Random.Range(0.9f, 1.1f);
         audioSource.PlayOneShot(swordSwing);
+        AttackRaycast();
 
         if (attackCount == 0)
         {
@@ -180,6 +213,13 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    private IEnumerator attack_enable()
+    {
+        //enemy_damage_trigger.enabled = true;
+        yield return new WaitForSeconds(2);
+       // enemy_damage_trigger.enabled = false;
+    }
+
     void ResetAttack()
     {
         attacking = false;
@@ -190,10 +230,12 @@ public class PlayerController : MonoBehaviour
     {
         if (Physics.Raycast(cam.transform.position, cam.transform.forward, out RaycastHit hit, attackDistance, attackLayer))
         {
-            HitTarget(hit.point);
+           // HitTarget(hit.point);
 
             if (hit.transform.TryGetComponent<Actor>(out Actor T))
             { T.TakeDamage(attackDamage); }
+            HitTarget(hit.transform.position);
+            print("raycast detected enemy and damaged");
         }
     }
 
@@ -202,7 +244,34 @@ public class PlayerController : MonoBehaviour
         audioSource.pitch = 1;
         audioSource.PlayOneShot(hitSound);
 
-        GameObject GO = Instantiate(hitEffect, pos, Quaternion.identity);
-        Destroy(GO, 20);
+       // GameObject GO = Instantiate(hitEffect, pos, Quaternion.identity);
+        //Destroy(GO, 20);
     }
+    /// <trying to detect enemy and damage>
+    /// /////////////////////////////////////////////////////
+    /// </summary>
+    /// <param name="other"></param>
+    /// 
+
+    private void DisplayPause()
+    {
+       if (m_pauseActionMain.WasPressedThisFrame())
+       {
+            PauseDisplay.SetActive(true);
+            playerInput.Main.Disable();
+            playerInput.UI.Enable();
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+       }
+
+       else if (m_pauseActionUI.WasPressedThisFrame())
+        {
+            PauseDisplay.SetActive(false);
+            playerInput.UI.Disable();
+            playerInput.Main.Enable();
+        }
+    }
+
+
+
 }
